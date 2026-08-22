@@ -562,6 +562,39 @@
         /* ---------------------------------------------------------------------------------- */
         /* === 9. ESTILOS ESPECÍFICOS PARA LA IMPRESIÓN (TICKET) === */
         /* ---------------------------------------------------------------------------------- */
+        @media print {
+            /* 1. Ocultar todo lo que no sea el contenido del ticket */
+            body > *:not(.print-ticket) {
+                display: none !important;
+            }
+
+            /* 2. Forzar el formato de ticket */
+            .print-ticket {
+                display: block !important; 
+                width: 80mm;
+                max-width: 80mm;
+                margin: 0;
+                padding: 5mm; 
+                font-family: monospace, 'Courier New', monospace; /* Fuente de recibo */
+                font-size: 9pt; 
+                color: black;
+                page-break-after: always; /* Asegura que el ticket se imprima en su propia sección */
+            }
+
+            /* 3. Resetear márgenes y fondos de página */
+            @page {
+                size: 80mm auto; 
+                margin: 0;
+            }
+            
+            /* Asegurar que todos los elementos de impresión sean negros */
+            .print-ticket * {
+                color: black !important;
+                box-shadow: none !important;
+                text-shadow: none !important;
+                background-color: transparent !important;
+            }
+        }
     </style>
 </head>
 <body style="opacity: 0;"> 
@@ -640,18 +673,19 @@
         }
         let cart = JSON.parse(localStorage.getItem('cart')) || [];
 
-        // >>> URL CON TU ID DE PUBLICACIÓN (Completa) <<<
-        const productsUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQtRvbHZgDDAVSfbF5R7HlIrv_2w8_ZZOx87Ssf96f9-5mBIIhg3_qofvXaK0TElyogxjN7BI7PJn2l/pub?gid=1169053887&single=true&output=csv';
-        
-        // >>> URL SÓLO PARA LA CELDA A2 (CÓDIGO DE SEGURIDAD) <<<
-        const securityCodeUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQtRvbHZgDDAVSfbF5R7HlIrv_2w8_ZZOx87Ssf96f9-5mBIIhg3_qofvXaK0TElyogxjN7BI7PJn2l/pub?gid=1169053887&single=true&range=B2&output=csv';
-        // <<< FIN URL >>>
+       // >>> URL CON TU ID DE PUBLICACIÓN <<<
+const productsUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQtRvbHZgDDAVSfbF5R7HlIrv_2w8_ZZOx87Ssf96f9-5mBIIhg3_qofvXaK0TElyogxjN7BI7PJn2l/pub?output=csv';
+
+// >>> URL SÓLO PARA LA CELDA A2 (CÓDIGO DE SEGURIDAD) <<<
+const securityCodeUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQtRvbHZgDDAVSfbF5R7HlIrv_2w8_ZZOx87Ssf96f9-5mBIIhg3_qofvXaK0TElyogxjN7BI7PJn2l/pub?output=csv&range=B2';
 
         // URLs de logos (reemplazar con las URLs reales)
         const logoSinTaccUrl = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR5T7nDfaM_05QQOmcKUhuZoU6CnTZt0Ig9bQ&s';
-        const logoVeganoUrl = ' https://encrypted-tbn0.gstatic.com/images?q=q=tbn:ANd9GcQrWh6bS_uu0DfLFB7tEsj4aojQqHJyzH8brQ&s';
-        const logoSinAzucarUrl = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSBK_h6dMpoVwkTRMSr3C3xV46pvgD2BstPhIfEu2WMn9YoxkQM97T456q_wGZzvZ5j&usqp=CAU';
-        const logoSinSalUrl = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTHjYvblrFp9CXaSMbl_l1iDsTcTq9ridCqw&s';
+        const logoVeganoUrl = 'https://static.vecteezy.com/system/resources/thumbnails/053/442/900/small/vegan-icon-set-organic-logos-and-badges-green-leaf-on-white-background-illustration-png.png';
+        const logoSinAzucarUrl = 'https://www.lastrespatas.com/source/las-tres-patas-sin-azucar.jpg';
+        const logoSinSalUrl = 'https://gmbozone.net/shop/image/data/OZONO%20DOR/Sin_Toxicos/Sin_sal_OZONODOR.jpg';
+        const logoKetoUrl = 'https://cdn-icons-png.flaticon.com/512/10008/10008886.png';
+        const logoOrganicoUrl = 'https://quieronatural.com.ar/wp-content/uploads/2021/12/organicoweb3-283x400.png';
 
         let allProducts = []; 
         
@@ -693,66 +727,52 @@
 
         // --- FUNCIONES DE SEGURIDAD Y CARGA INICIAL ---
         
-        async function checkSecurityCode() {
+       async function checkSecurityCode() {
             const loginScreen = document.getElementById('login-screen');
             const securityInput = document.getElementById('security-input');
             const accessButton = document.getElementById('access-button');
             const errorMessage = document.getElementById('error-message');
 
-            // 1. Obtener el código secreto de la Celda A2
             let actualCode = '';
             try {
-                // FIX PARA LECTURA DE UNA SOLA CELDA (A2)
                 const response = await fetch(securityCodeUrl);
-                if (!response.ok) {
-                    throw new Error(`Error al obtener el código de seguridad. Status: ${response.status}`);
-                }
+                if (!response.ok) throw new Error('Error de conexión');
                 
-                // Simplemente obtenemos el texto de la respuesta (que es el valor de A2)
                 let rawCode = await response.text();
                 
-                // Limpiamos el valor: eliminamos espacios, eliminamos comillas (si las puso Google Sheets)
-                actualCode = rawCode.trim().replace(/"/g, '').toUpperCase(); 
+                // --- LIMPIEZA REFORZADA ---
+                // Eliminamos comillas, saltos de línea (\n \r) y espacios
+                actualCode = rawCode.replace(/["\n\r]/g, '').trim().toUpperCase();
                 
-                if (actualCode === '') {
-                    console.warn('🟡 La celda A2 está vacía en Google Sheets. Se usará un código vacío para el acceso.');
-                }
-                
+                console.log("Código detectado en la nube:", actualCode); // Para ver en la consola qué leyó
+
             } catch (error) {
-                console.error('🔴 Error al cargar el código de seguridad:', error);
-                errorMessage.textContent = 'Error al cargar el código. Revisa la URL de seguridad.';
+                console.error('Error al cargar código:', error);
+                errorMessage.textContent = 'Error al conectar con la base de datos.';
                 errorMessage.style.display = 'block';
                 document.body.style.opacity = '1';
                 return; 
             }
 
-            // 2. Definir la función de validación (usada en el botón y Enter)
             const validateCode = () => {
-                errorMessage.style.display = 'none'; 
                 const inputCode = securityInput.value.trim().toUpperCase();
 
-                if (inputCode === actualCode && inputCode !== '') {
-                    // CÓDIGO CORRECTO: Ocultar login y mostrar contenido
+                if (inputCode === actualCode && actualCode !== '') {
                     loginScreen.style.display = 'none';
                     document.body.style.opacity = '1';
-                    loadProducts(); // Cargar productos una vez validado
+                    loadProducts(); 
                 } else {
-                    // CÓDIGO INCORRECTO: Mostrar error
                     errorMessage.textContent = 'Código incorrecto. Inténtalo de nuevo.';
                     errorMessage.style.display = 'block';
-                    securityInput.value = ''; // Limpiar campo
+                    securityInput.value = ''; 
                 }
             };
 
-            // 3. Conectar el evento al botón y a la tecla Enter
             accessButton.onclick = validateCode;
             securityInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    validateCode();
-                }
+                if (e.key === 'Enter') validateCode();
             });
             
-            // Mostrar la pantalla de login (el body estaba oculto con opacity: 0)
             document.body.style.opacity = '1'; 
         }
 
@@ -943,9 +963,9 @@
                         if (productData['Sin Azucar'] === 'SI') {
                             const imgSinAzucar = document.createElement('img');
                             imgSinAzucar.src = logoSinAzucarUrl;
-                            imgSinAzucar.alt = 'Sin Azúcar';
+                            imgSinAzucar.alt = 'Sin Azucar';
                             imgSinAzucar.classList.add('logo-propiedad');
-                            imgSinAzucar.title = 'Sin Azúcar';
+                            imgSinAzucar.title = 'Sin Azucar';
                             propiedadesContainer.appendChild(imgSinAzucar);
                         }
                         if (productData['Sin Sal'] === 'SI') {
@@ -956,46 +976,63 @@
                             imgSinSal.title = 'Sin Sal';
                             propiedadesContainer.appendChild(imgSinSal);
                         }
+                        if (productData['Keto'] === 'SI') {
+                            const imgKeto = document.createElement('img');
+                            imgKeto.src = logoKetoUrl;
+                            imgKeto.alt = 'Keto';
+                            imgKeto.classList.add('logo-propiedad');
+                            imgKeto.title = 'Keto';
+                            propiedadesContainer.appendChild(imgKeto);
+                        }
+                         if (productData['Organico'] === 'SI') {
+                            const imgOrganico = document.createElement('img');
+                            imgOrganico.src = logoOrganicoUrl;
+                            imgOrganico.alt = 'Organico';
+                            imgOrganico.classList.add('logo-propiedad');
+                            imgOrganico.title = 'Organico';
+                            propiedadesContainer.appendChild(imgOrganico);
+                        }
+
 
                         productoInfoDiv.appendChild(propiedadesContainer);
 
-                        // Lógica de descripción corta y "leer más"
-                        if (productData['Descripcion']) {
-                            const descripcionContainer = document.createElement('div');
-                            descripcionContainer.classList.add('descripcion-container');
+                        // Lógica usando las dos columnas existentes
+if (productData['Descripción Completa']) {
+    const descripcionContainer = document.createElement('div');
+    descripcionContainer.classList.add('descripcion-container');
 
-                            const descripcionCompleta = productData['Descripcion'].trim();
-                            const palabras = descripcionCompleta.split(' ');
-                            const descripcionCorta = palabras.length > 10 ? palabras.slice(0, 10).join(' ') + '...' : descripcionCompleta;
+    // Creamos el elemento de texto
+    const textoDescripcion = document.createElement('span');
+    textoDescripcion.classList.add('descripcion-texto');
+    
+    // Usamos la versión corta por defecto
+    const corta = productData['Descripción Corta'] || '';
+    const completa = productData['Descripción Completa'];
+    
+    textoDescripcion.textContent = corta;
+    descripcionContainer.appendChild(textoDescripcion);
 
-                            const spanCorta = document.createElement('span');
-                            spanCorta.classList.add('descripcion-corta');
-                            spanCorta.textContent = descripcionCorta;
-                            descripcionContainer.appendChild(spanCorta);
+    // Solo añadimos el botón si la descripción completa es distinta a la corta
+    if (completa.length > corta.length) {
+        const leerMasBtn = document.createElement('button');
+        leerMasBtn.classList.add('leer-mas-btn');
+        leerMasBtn.innerHTML = ' &#9660;'; // Flecha hacia abajo
+        leerMasBtn.style.cursor = 'pointer';
 
-                            if (palabras.length > 10) {
-                                const spanCompleta = document.createElement('span');
-                                spanCompleta.classList.add('descripcion-completa');
-                                spanCompleta.textContent = descripcionCompleta;
-                                spanCompleta.style.display = 'none'; 
-                                descripcionContainer.appendChild(spanCompleta);
+        let isExpanded = false;
 
-                                const leerMasBtn = document.createElement('button');
-                                leerMasBtn.classList.add('leer-mas-btn');
-                                leerMasBtn.innerHTML = '&#9660;'; 
-                                leerMasBtn.onclick = function() {
-                                    if (spanCompleta.style.display === 'none') {
-                                        spanCompleta.style.display = 'inline';
-                                        spanCorta.style.display = 'none';
-                                        leerMasBtn.innerHTML = '&#9650;'; 
-                                    } else {
-                                        spanCompleta.style.display = 'none';
-                                        spanCorta.style.display = 'inline';
-                                        leerMasBtn.innerHTML = '&#9660;';
-                                    }
-                                };
-                                descripcionContainer.appendChild(leerMasBtn);
-                            }
+        leerMasBtn.onclick = function() {
+            isExpanded = !isExpanded;
+            if (isExpanded) {
+                textoDescripcion.textContent = completa;
+                leerMasBtn.innerHTML = ' &#9650;'; // Flecha hacia arriba
+            } else {
+                textoDescripcion.textContent = corta;
+                leerMasBtn.innerHTML = ' &#9660;';
+            }
+        };
+        descripcionContainer.appendChild(leerMasBtn);
+    }
                             productoInfoDiv.appendChild(descripcionContainer);
                         }
 
@@ -1126,7 +1163,59 @@
             oldCartItemsContainer.parentNode.replaceChild(newCartItemsContainer, oldCartItemsContainer);
             attachCartEventListeners();
             
-            // *** NOTA: Se eliminó la lógica de generación del div.print-ticket aquí para simplificar ***
+            // --- INICIO: LÓGICA DE GENERACIÓN DEL TICKET DE IMPRESIÓN ---
+            let printContent = `
+                <div class="print-ticket">
+                    <h1 style="text-align: center; font-size: 1.2em; margin-bottom: 5px;">DIETÉTICA VIRGILIO</h1>
+                    <p style="text-align: center; font-size: 0.9em; border-bottom: 1px dashed black;">Ticket de Pedido - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
+                    <div style="margin-top: 10px; border-bottom: 1px solid black; padding-bottom: 5px;">
+                        <span style="font-weight: bold; display: inline-block; width: 45%;">PRODUCTO</span>
+                        <span style="font-weight: bold; display: inline-block; width: 20%; text-align: center;">CANT</span>
+                        <span style="font-weight: bold; display: inline-block; width: 30%; text-align: right;">TOTAL</span>
+                    </div>
+            `;
+            
+            let rawSubtotal = 0;
+            let finalTotalTicket = 0;
+
+            cart.forEach(item => {
+                const calculation = calculateItemTotal(item);
+                const itemTotal = calculation.itemTotal;
+                const discountMessage = calculation.discountMessage;
+                finalTotalTicket += itemTotal;
+                rawSubtotal += item.price * item.quantity;
+
+
+                printContent += `
+                    <div style="display: flex; justify-content: space-between; margin: 3px 0;">
+                        <span style="max-width: 50%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</span>
+                        <span style="text-align: center;">${item.quantity}</span>
+                        <span style="text-align: right;">$${itemTotal.toFixed(2)}${discountMessage ? '*' : ''}</span>
+                    </div>
+                `;
+            });
+            
+            const totalDiscount = rawSubtotal - finalTotalTicket;
+
+            printContent += `
+                    <div style="border-top: 1px dashed black; margin-top: 10px; padding-top: 5px;">
+                        <p style="display: flex; justify-content: space-between; margin: 2px 0;"><span>Subtotal:</span><span style="font-weight: bold;">$${rawSubtotal.toFixed(2)}</span></p>
+                        <p style="display: flex; justify-content: space-between; margin: 2px 0; color: green;"><span>Descuento:</span><span style="font-weight: bold;">-$${totalDiscount.toFixed(2)}</span></p>
+                        <h3 style="display: flex; justify-content: space-between; margin: 5px 0; font-size: 1.1em;"><span>TOTAL A PAGAR:</span><span>$${finalTotalTicket.toFixed(2)}</span></h3>
+                    </div>
+                    ${totalDiscount > 0 ? '<p style="font-size: 0.8em; margin-top: 5px; text-align: center;">* Descuento aplicado por volumen</p>' : ''}
+                    <p style="text-align: center; margin-top: 15px; font-size: 0.8em;">¡Gracias por tu compra!</p>
+                </div>
+            `;
+
+            // 1. Elimina cualquier ticket anterior en el body
+            document.querySelectorAll('.print-ticket').forEach(el => el.remove());
+            // 2. Crea un div temporal para contener el HTML del ticket
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = printContent;
+            // 3. Añade el primer hijo (el div.print-ticket) al body de la página
+            document.body.appendChild(tempDiv.firstChild); 
+            // --- FIN: LÓGICA DE GENERACIÓN DEL TICKET DE IMPRESIÓN ---
         }
 
         function attachCartEventListeners() {
@@ -1200,11 +1289,11 @@
             });
         }
         
-        // --- Lógica del Escáner QR ---
+        // --- Lógica del Escáner QR (AJUSTADA CON HTML5QRCODESCANNER) ---
         
         function startQrScanner() {
             if (!html5QrcodeScanner) {
-                // Instancia el escáner si no existe.
+                // Instancia el escáner si no existe. El tercer parámetro (false) indica que no muestre la UI de la librería.
                 html5QrcodeScanner = new Html5QrcodeScanner(
                     "reader", {
                         fps: 10,
@@ -1216,7 +1305,7 @@
                     false);
             }
 
-            // Inicia el renderizado.
+            // Inicia el renderizado. Esto pide permisos y comienza el escaneo.
             html5QrcodeScanner.render(onScanSuccess, onScanFailure);
         }
 
@@ -1224,6 +1313,7 @@
             if (html5QrcodeScanner) {
                 // Limpia el escáner y detiene la cámara
                 html5QrcodeScanner.clear().catch(error => {
+                    // Este error es común si se detiene justo después de empezar. Lo dejamos como advertencia.
                     console.warn("Advertencia al detener el escáner:", error); 
                 });
             }
@@ -1256,6 +1346,7 @@
             // Muestra errores serios (como problemas de cámara/permisos)
             console.warn(`Error de escaneo: ${error}`);
         }
+        // --- Fin Lógica del Escáner QR ---
         
         // --- FUNCIÓN DE IMPRESIÓN SIMPLIFICADA (NUEVA SOLUCIÓN) ---
         function printCart() {
@@ -1438,7 +1529,7 @@
                 return;
             }
 
-            let message = 'Hola Devoto Tienda Saludable, les hago un pedido:\n\n';
+            let message = 'PEDIDO:\n\n';
             let finalTotal = 0;
 
             cart.forEach(item => {
